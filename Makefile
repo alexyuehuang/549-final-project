@@ -24,9 +24,8 @@ trans.o: trans.c
 #
 clean:
 	rm -rf *.o
-	rm -f *.tar
 	rm -f csim
 	rm -f test-trans tracegen
-	rm -f trace.all trace.f*
+	rm -f trace.tmp trace.f*
 	rm -f csim_results
-	rm -f .marker
+	rm -f marker

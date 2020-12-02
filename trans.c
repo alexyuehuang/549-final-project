@@ -130,7 +130,7 @@ void trans(int M, int N, int A[N][M], int B[M][N])
 }
 
 /* 
- * registerTransFunction - Add the given trans function into your list
+ * registerTransFunction - Add the given trans function into the list
  *     of functions to be tested
  */
 void registerTransFunction(void (*trans)(int M, int N, int[N][M], int[M][N]), 
@@ -146,19 +146,13 @@ void registerTransFunction(void (*trans)(int M, int N, int[N][M], int[M][N]),
 }
 
 /*
- * registerFunctions - This function registers your transpose
- *     functions with the driver.  At runtime, the driver will
- *     evaluate each of the registered functions and summarize their
- *     performance. This is a handy way to experiment with different
- *     transpose strategies.
+ * registerFunctions - All functions registered will be tested
  */
 void registerFunctions()
 {
-    /* Register your solution function */
+    /****************************** Register functions *********************************/
+    registerTransFunction(trans, trans_desc);
     registerTransFunction(transpose_submit, transpose_submit_desc); 
-
-    /* Register any additional transpose functions */
-    
-
+    /***********************************************************************************/   
 }
 

@@ -1,6 +1,6 @@
 /* 
  * tracegen.c - Running the binary tracegen with valgrind produces
- * a memory trace of all of the registered transpose functions. 
+ * a memory trace of the registered transpose function specified. 
  * 
  * The beginning and end of each registered transpose function's trace
  * is indicated by reading from "marker" addresses. These two marker
@@ -24,16 +24,16 @@ extern int func_counter;
 /* Markers used to bound trace regions of interest */
 volatile char MARKER_START, MARKER_END;
 
-static int A_TEMP[256][256];
-static int A[256][256];
-static int B[256][256];
+static int A_TEMP[MAXN][MAXN];
+static int A[MAXN][MAXN];
+static int B[MAXN][MAXN];
 static int M;
 static int N;
 
 /* 
- * correctTrans - baseline transpose function used to evaluate correctness 
+ * correct - baseline transpose function used to evaluate correctness 
  */
-void correctTrans(int M, int N, int A[N][M], int B[M][N])
+void correct(int M, int N, int A[N][M], int B[M][N])
 {
     int i, j, tmp;
     for (i = 0; i < N; i++){
@@ -47,7 +47,7 @@ void correctTrans(int M, int N, int A[N][M], int B[M][N])
 int validate(int fn, int M, int N, int A[N][M], int B[M][N]) {
     int C[M][N];
     memset(C,0,sizeof(C));
-    correctTrans(M,N,A,C);
+    correct(M,N,A,C);
     for(int i=0;i<M;i++) {
         for(int j=0;j<N;j++) {
             if(B[i][j]!=C[i][j]) {
@@ -106,7 +106,7 @@ int main(int argc, char* argv[]){
     memcpy(A_TEMP, A, M*N*sizeof(A[0][0]));
 
     /* Record marker addresses */
-    FILE* marker_fp = fopen(".marker","w");
+    FILE* marker_fp = fopen("marker","w");
     assert(marker_fp);
     fprintf(marker_fp, "%llx %llx", 
             (unsigned long long int) &MARKER_START,

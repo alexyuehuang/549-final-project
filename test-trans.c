@@ -16,9 +16,6 @@
 
 #include "trans.h"
 
-/* Maximum array dimension */
-#define MAXN 256
-
 /* External variables defined in cachelab-tools.c */
 extern trans_func_t func_list[MAX_TRANS_FUNCS];
 extern int func_counter; 
@@ -38,8 +35,6 @@ void eval_perf(unsigned int s, unsigned int E, unsigned int b)
     char buf[1000], cmd[255];
     char filename[128];
 
-    registerFunctions(); 
-
     /* Open the complete trace file */
     FILE* full_trace_fp;  
     FILE* part_trace_fp; 
@@ -54,18 +49,18 @@ void eval_perf(unsigned int s, unsigned int E, unsigned int b)
         sprintf(cmd, "valgrind --tool=lackey --trace-mem=yes --log-fd=1 -v ./tracegen -M %d -N %d -F %d  > trace.tmp", M, N,i);
         flag=WEXITSTATUS(system(cmd));
         if (0!=flag) {
-            printf("Validation error at function %d! Run ./tracegen -M %d -N %d -F %d for details.\nSkipping performance evaluation for this function.\n",flag-1,M,N,i);      
+            printf("Validation error at function %d!(%s)\n"
+                    "Skipping performance evaluation for this function.\n", 
+                    flag-1, func_list[i].description);      
             continue;
         }
 
         /* Get the start and end marker addresses */
-        FILE* marker_fp = fopen(".marker", "r");
+        FILE* marker_fp = fopen("marker", "r");
         assert(marker_fp);
         fscanf(marker_fp, "%llx %llx", &marker_start, &marker_end);
         fclose(marker_fp);
 
-
-        func_list[i].correct=1;
 
         full_trace_fp = fopen("trace.tmp", "r");
         assert(full_trace_fp);
@@ -130,14 +125,13 @@ void eval_perf(unsigned int s, unsigned int E, unsigned int b)
          * erroneously added. This should be fixed in a better way in
 	 * the future 
 	 */
-	    misses -= 3; //TODO FIXME
+	    //misses -= 3; //TODO FIXME
 	
         func_list[i].num_hits = hits;
         func_list[i].num_misses = misses; 
-
-	
         func_list[i].num_evictions = evictions;
-        printf("func %u (%s): hits:%u, misses:%u, evictions:%u\n",
+        func_list[i].correct = 1;
+        printf("func %u (%s): hits:%u, misses:%u(-3), evictions:%u\n",
                i, func_list[i].description, hits, misses, evictions);
     }
   
@@ -225,8 +219,13 @@ int main(int argc, char* argv[])
     /* Time out and give up after a while */
     alarm(120);
 
-    /* Check the performance of the student's transpose function */
+    /* register functions */
+    registerFunctions(); 
+
+    /* Check the performance */
+    /********************* test with different cache parameters **********************/
     eval_perf(5, 1, 5);
-  
+    eval_perf(4, 4, 5);
+    /*********************************************************************************/
     return 0;
 }
