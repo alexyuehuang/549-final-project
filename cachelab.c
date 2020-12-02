@@ -11,32 +11,25 @@ trans_func_t func_list[MAX_TRANS_FUNCS];
 int func_counter = 0; 
 
 /* 
- * printSummary - Summarize the cache simulation statistics. Student cache simulators
- *                must call this function in order to be properly autograded. 
+ * printSummary - Summarize the cache simulation statistics
  */
 void printSummary(int hits,
 		  int misses,
-		  int evictions,
-		  int dirty_evicted,
-		  int dirty_active,
-		  int double_accesses)
+		  int evictions)
 {
-    printf("hits:%d "
-	   "misses:%d "
-	   "evictions:%d "
-	   "dirty_bytes_evicted:%d "
-	   "dirty_bytes_active:%d "
-	   "double_refs:%d\n",
-	   hits, misses, evictions, dirty_evicted, dirty_active, double_accesses);
-    FILE* output_fp = fopen(".csim_results", "w");
+    float miss_rate = (float)misses/(float)(hits + misses);
+    printf("hits:\t\t%d\n"
+	   "misses:\t\t%d\n"
+       "miss rate:\t%f\n"
+	   "evictions:\t%d\n",
+	   hits, misses, miss_rate, evictions);
+    FILE* output_fp = fopen("csim_results", "w");
     assert(output_fp);
-    fprintf(output_fp, "%d %d %d %d %d %d\n",
+    fprintf(output_fp, "%d %d %f %d\n",
 	    hits,
 	    misses,
-	    evictions,
-	    dirty_evicted,
-	    dirty_active,
-	    double_accesses);
+        miss_rate,
+	    evictions);
     fclose(output_fp);
 }
 
@@ -83,18 +76,4 @@ void correctTrans(int M, int N, int A[N][M], int B[M][N])
 
 
 
-/* 
- * registerTransFunction - Add the given trans function into your list
- *     of functions to be tested
- */
-void registerTransFunction(void (*trans)(int M, int N, int[N][M], int[M][N]), 
-                           char* desc)
-{
-    func_list[func_counter].func_ptr = trans;
-    func_list[func_counter].description = desc;
-    func_list[func_counter].correct = 0;
-    func_list[func_counter].num_hits = 0;
-    func_list[func_counter].num_misses = 0;
-    func_list[func_counter].num_evictions =0;
-    func_counter++;
-}
+

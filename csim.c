@@ -1,362 +1,239 @@
-#include "cachelab.h"
-#define _GNU_SOURCE
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
 #include <getopt.h>
-#include <stdbool.h>
 
-//initialize variables
-int s = 0;
-int b = 0;
-int E = 0;
-int hit = 0;
-int singlesize = 0;
-int cachesize = 0;
-int dirtye = 0;
-int dirtya = 0;
-int miss = 0;
-int evict = 0;
-int douref = 0;
-int v=0;
+// argument inputs
+int s = -1;
+int E = -1;
+int b = -1;
+FILE * file = NULL;
+char en = 0;
 
-//load dirty bytes into memory, update dirtye
-void load(int *ptr, int B)
-{
-    //update byte counts
-   dirtye += B;
-   dirtya -= B;
-   //empty the bytes
-   for (int i = 0; i < singlesize; ++i)
-   {
-      *ptr = 0;
-      ptr++;
-   }
-   return;
+// simulate cache
+long * * tags; // tags
+char * * vs; // valid bits
+// lru data structure: it maintains the property that for each set
+// the line with the smallest lru value (1) is the most recently used one
+// the line with the largest lru value is the least recrently used one
+// the line with lru value 0 is unused so far
+long * * lru; 
+
+// store hit, miss, eviction
+long hit = 0l;
+long miss = 0l;
+long eviction = 0l;
+
+/* update the lru 
+ * s_num: set number
+ * idx: the index of the line used
+ * The lru of the line used is set to 1
+ * The lru of the rest of the lines are incremented by 1 if necessary
+ */
+void update_lru(long s_num, int idx){
+   long value = lru[s_num][idx]; // old value of the entry
+	for(int i = 0; i < E; ++i){
+		if(i == idx){
+			lru[s_num][i] = 1; // the lru of the most recently used one is set to 1
+		}
+      // for the non-zero entry, if it's less than value, increment
+      //                         if value is 0, increment (we use a new line)
+      else if((lru[s_num][i] < value || value == 0) && lru[s_num][i]){
+			lru[s_num][i]++;
+		}
+	}
 }
 
-//fill the ptr with the bits needed
-void fill(int *ptr, int valid, int dirty, int max, long tag)
-{
-   long *longptr;
-   //valid byte
-   *ptr = valid;
-   ptr++;
-   //dirty byte
-   *ptr = dirty;
-   ptr++;
-   //LRU byte
-   *ptr = max;
-   ptr++;
-   //tag byte
-   longptr = (long *)ptr;
-   *longptr = tag;
-   return;
+/* return the index of the line that we are going to use
+ * s_num: set number
+ * if an lru entry is 0, it is a cold miss and the index is returned
+ * otherwise return the index with the largest lru value (i.e. least recently
+ * used line)
+ */
+int index_line(long s_num){
+	int idx = 0;
+	long max_lru = 0;
+	for(int i = 0; i < E; ++i){
+		if(lru[s_num][i] == 0)
+			return i;
+		if(lru[s_num][i] > max_lru){
+			max_lru = lru[s_num][i];
+			idx = i;
+		}
+	}
+	return idx;
 }
 
-//go into the memory to find the cache line needed
-//change the cache line if needed
-void changeCache(char *addr, bool iswrite, int *cache)
-{
-    //initialize variables
-    int B=(1<<b); 
-   long addrnum = 0;
-   long tag = 0;
-   long bitmask = 0;
-   int max = 0;
-   int min = 2147483647; //max int value
-   int *setptr;
-   int *eleptr;
-   long *longptr;
-   int *hitptr=NULL;
-   int *empty=NULL;
-   int *toEvict=NULL;
-   
-   
-   addrnum = strtol(addr, NULL, 16);
-   bitmask = (~((~0) << s)) << b;
-   //calculate tag
-   tag = (long)((unsigned long)addrnum >> (s + b));
-   addrnum = (addrnum & bitmask) >> b;
-   //ptr to the set
-   setptr = cache + E * singlesize * addrnum;
-   
-   //check if data is in cache
-   for (int i = 0; i < E; ++i)
-   {
-      eleptr = setptr + singlesize * i;
-      //if there are empty lines
-      if ((*eleptr) == 0)
-      {
-         empty = eleptr;
-         continue;
-      }
-      //get the maximum
-      eleptr += 2;
-      if ((*eleptr) > max)
-      {
-         max = *eleptr;
-      }
-      //find out what to evict
-      if ((*eleptr) < min)
-      {
-         min = *eleptr;
-         toEvict = eleptr - 2;
-      }
-      eleptr += 1;
-      longptr = (long *)eleptr;
-      //find if there's a hit
-      if (*longptr == tag)
-      {
-         hitptr = eleptr - 3;
-      }
-   }
-   
-   //if we got a hit
-   if (hitptr != NULL)
-   {
-      //write in hitptr
-      if(v){
-      printf(" hit");
-      fflush(stdout);
-      }
-      hit++;
-      hitptr++;
-      if (iswrite==true)
-      {
-         if((*hitptr )==0){
-             *hitptr=1;
-             dirtya+=B;
-         }
-      }
-      hitptr++;
-      //if we got a double ref
-      if ((*hitptr) == max)
-      {
-          if(v){
-         printf("-double_ref");
-         fflush(stdout);
-          }
-         douref++;
-      }
-      else
-      {
-         *hitptr = max + 1;
-      }
-   }
-   else
-   {
-       //if we got a miss
-      max++;
-      if(v){
-      printf(" miss");
-      fflush(stdout);
-      }
-      miss++;
-      //if we got a empty line
-      if (empty != NULL)
-      {
-          if(v){
-          printf(" empty");
-            fflush(stdout);
-          }
-         if (iswrite==true)
-         {
-             //fill in the new line
-            fill(empty, 1, 1, max, tag);
-            //update dirty bit
-            dirtya+=B;
-         }
-         else
-         {
-            fill(empty, 1, 0, max, tag);
-         }
-      }
-      else
-      {
-          //in this case we evict a line and then load
-          //if something went wrong
-         if (toEvict == NULL)
-         {
-             if(v){
-            printf("toEvict is null!");
-            fflush(stdout);
-             }
-            return;
-         }
-         evict++;
-         //if we got a dirty eviction
-         if ((*(toEvict + 1)) == 1)
-         {
-             if(v){
-            printf(" dirty-eviction");
-            fflush(stdout);
-             }
-            load(toEvict, B);
-         }
-         else
-         {
-             //if we got a regular eviction
-             if(v){
-            printf(" eviction");
-            fflush(stdout);
-             }
-         }
-         //replace line
-         if (iswrite==false)
-         {
-             //load line
-            fill(toEvict, 1, 0, max, tag);
-         }
-         else
-         {
-            fill(toEvict, 1, 1, max, tag);
-            dirtya+=B;
-         }
-   }
-}
-   return;
+/* simulate a cache load/store at address addr */
+void move_cache(long addr){
+	long tag = ((unsigned long)addr) >> (s + b); // tag
+	long s_num = (((unsigned long)addr) << (64 - s - b)) >> (64 - s); // set
+	for(int i = 0; i < E; ++i){
+      // hit if valid bit is 1 and tag is the same
+		if(vs[s_num][i] == 1 && tags[s_num][i] == tag) {
+			hit ++;
+			if(en)
+				printf(" hit");
+         update_lru(s_num, i);
+			break;
+		}
+      // miss if we reach the last line in the set
+		if(i == E - 1){
+			miss ++;
+			if(en)
+				printf(" miss");
+			int idx = index_line(s_num); //index of the line we are going to use
+			if(vs[s_num][idx] == 0){ // a cold miss
+            update_lru(s_num, idx);
+			}else{ // eviction is needed
+				eviction ++;
+				if(en)
+					printf(" eviction");
+            update_lru(s_num, idx);
+			}
+			vs[s_num][idx] = 1;
+			tags[s_num][idx] = tag;
+		}
+	}
 }
 
-int main(int argc, char *argv[])
-{
-    //initialize local variables
-   int h = 0;
-   size_t size = 0;
-   
-   char* buffer=NULL;
-   FILE *file;
-   int *cache;
-   char *t;
-   char opt;
-   char *endptr;
-   char *bufptr;
-   char *ope;
-   char *addr;
-   
-   //get input variables
-   //differ into cases
-   while ((opt = getopt(argc, argv, "hvs:E:b:t:")) != -1)
-   {
-      switch (opt)
-      {
-      case 'h':
-         printf("h selected");
-         fflush(stdout);
-         h = 1;
-         break;
-      case 'v':
-         printf("v selected");
-         fflush(stdout);
-         v = 1;
-         break;
-      case 's':
-         s = strtoul(optarg, &endptr, 10);
-         if (*optarg == '\0' || *endptr != '\0')
-         {
-            printf("unable to parse");
-            fflush(stdout);
-            return -1;
-         }
-         break;
-      case 'E':
-         E = strtoul(optarg, &endptr, 10);
-         if (*optarg == '\0' || *endptr != '\0')
-         {
-            printf("unable to parse");
-            fflush(stdout);
-            return -1;
-         }
-         break;
-      case 'b':
-         b = strtoul(optarg, &endptr, 10);
-         if (*optarg == '\0' || *endptr != '\0')
-         {
-            printf("unable to parse");
-            fflush(stdout);
-            return -1;
-         }
-         break;
-      case 't':
-         t = optarg;
-         break;
-      default:
-         printf(" unknownoption");
-         fflush(stdout);
-         return -1;
-      }
-   }
+/* parse the trace file */
+void parse_file() {
+	char buf[32];
+	while (fgets(buf, sizeof(buf), file) != NULL) {
+		if(buf[0] == 'I')
+			continue;
+		long addr_l = strtol(buf+3,NULL,16); //address
+		if(buf[1] == 'L' || buf[1] == 'S'){
+			 if(en){
+				printf("L/S %lx ",addr_l);
+			 }
+			 move_cache(addr_l);
+			 if(en)
+				printf("\n");
+		}
+		if(buf[1] == 'M'){
+			 if(en)
+				printf("M %lx",addr_l);
+			 move_cache(addr_l);
+			 move_cache(addr_l);
+			 if(en)
+				printf("\n");
+		}
+	}
+}
 
-   //singlesize:int(valid)+int(dirty)+int(time)+long(tag)+stuffs
-   singlesize = 1 + 1 + 1 + 2 + (1<<b);
-   //total size of cache
-   cachesize = singlesize * E * (1<<s);
-   //allocate mamory
-   cache = (int *)calloc(cachesize, 4);
-  (void)h;
+/* free memory for the program */
+void free_memory() {
+	int S = pow(2,s);
+	for(int i = 0; i < S; ++i)  
+		free(tags[i]);
+   free(tags);
+   for(int i = 0; i < S; ++i)  
+		free(lru[i]);
+   free(lru);
+   for(int i = 0; i < S; ++i)  
+		free(vs[i]);
+   free(vs); 
+}
 
-   //open file
-   file = fopen((const char *)t, "r");
-   //if open went wrong
-   if (file == NULL)
-   {
-      printf("No file found");
-      fflush(stdout);
-      return 0;
+/* Malloc memory for the program and initialized to 0*/
+void malloc_memory() {
+	int S = pow(2,s); // num of sets
+	tags = (long * *)malloc(sizeof(long *) * S); 
+	lru = (long * *)malloc(sizeof(long *) * S);  
+   for(int i = 0; i < S; ++i) {
+		tags[i]=(long *)malloc(sizeof(long) * E);
+      memset((void *)tags[i], 0, sizeof(long) * E);
    }
-   //while there is a line to read
-   while (getline(&buffer, &size, file) != -1)
-   {
-      //don't do anything if I
-      if (*buffer != ' ')
-      {
-         continue;
-      }
-      //read components of the line
-      bufptr = buffer;
-      bufptr++;
-      ope = bufptr;
-      bufptr += 2;
-      addr = bufptr;
-    if(v){
-      printf("\n The string: %s ", ope);
-      fflush(stdout);
+	for(int i = 0; i < S; ++i) {  
+		lru[i]=(long *)malloc(sizeof(long) * E);
+      memset((void *)lru[i], 0, sizeof(long) * E);
+   }
+	vs = (char * *)malloc(sizeof(char *) * S);  
+   for(int i = 0; i < S; ++i) {
+		vs[i]=(char *)malloc(sizeof(char) * E);
+      memset((void *)vs[i], 0, sizeof(char) * E);
+   }
+}
+
+/* summarize the cache simulation statistics */
+void printSummary(int hits, int misses, int evictions) {
+    float miss_rate = (float)misses/(float)(hits + misses);
+    printf("hits:\t\t%d\n"
+	   "misses:\t\t%d\n"
+       "miss rate:\t%f\n"
+	   "evictions:\t%d\n",
+	   hits, misses, miss_rate, evictions);
+    FILE* output_fp = fopen("csim_results", "w");
+    if(output_fp == NULL){
+       printf("Opening file csim_results failed!");
     }
-      //data modify, load and store
-      //data modify
-      if ((*ope) == 'M')
-      {
-          if(v){
-         printf(" M ");
-         fflush(stdout);
-          }
-          //M is load and store
-         changeCache(addr, false, cache);
-         changeCache(addr, true, cache);
-      }
-      //data load
-      if ((*ope) == 'L')
-      {
-          if(v){
-         printf(" L ");
-         fflush(stdout);
-          }
-         changeCache(addr, false, cache);
-      }
-      //data store
-      if ((*ope) == 'S')
-      {
-          if(v){
-         printf(" S "); 
-         fflush(stdout);
-          }
-         changeCache(addr, true, cache);
+    fprintf(output_fp, "%d %d %f %d\n",
+	    hits,
+	    misses,
+        miss_rate,
+	    evictions);
+    fclose(output_fp);
+}
+
+/* print out usage information */
+void usage(char *exe){
+   printf("Usage: %s [-v] [-h] -s <s> -E <E> -b <b> -t <tracefile>\n"
+         "This program simulates the program specified in the tracefile on the cache with number\n"
+         "of sets, associativity, block size specified by the arguments. This program will count\n"
+         "number of hits, misses, and evictions, and calculate miss rate."
+			"\t -v: optional verbose flag\n"
+         "\t -h: print out usage information\n"
+			"\t -s <s>: number of set index bits, i.e. 2^s sets\n"
+			"\t -E <E>: associativity, i.e. number of lines per set\n"
+			"\t -b <b>: number of block bits, i.e. block size 2^b\n"
+			"\t -t <tracefile>: name of the valgrind trace to replay\n",
+		exe);
+}
+
+/* parse the command line arguments and set up the flags */
+void parse_arg(int argc, char * argv[]) {
+   char c;
+   while ((c = getopt(argc,argv,"hvs:E:b:t:")) != -1) {
+      switch(c) {
+         case 's':
+            s = atoi(optarg);
+            break;
+         case 'E':
+            E = atoi(optarg);
+            break;
+         case 'b':
+            b = atoi(optarg);
+            break;
+         case 't':
+            file = fopen(optarg, "r");
+            break;
+         case 'v':
+            en = 1;
+            break;
+         case 'h':
+            usage(argv[0]);
+            exit(0);
+         default:
+            usage(argv[0]);
+            exit(1);
       }
    }
-   //free buffers, close file
-   free(buffer);
-   fclose(file);
-   free(cache);
-   //return results
-   printSummary(hit, miss, evict, dirtye, dirtya, douref);
-   return 0;
+   if(s == -1 || E == -1 || b == -1 || file == NULL){
+		usage(argv[0]);
+		exit(1);
+	}
 }
+
+/* main function of the cache simulator */
+int main(int argc, char * argv[]) {
+    parse_arg(argc, argv);
+    malloc_memory();
+    parse_file();
+    free_memory();
+    printSummary(hit, miss, eviction);
+    return 0;
+}
+

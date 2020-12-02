@@ -11,19 +11,13 @@
 #include <signal.h>
 #include <getopt.h>
 #include <sys/types.h>
-#include "cachelab.h"
 #include <sys/wait.h> // fir WEXITSTATUS
 #include <limits.h> // for INT_MAX
 
+#include "trans.h"
+
 /* Maximum array dimension */
 #define MAXN 256
-
-/* The description string for the transpose_submit() function that the
-   student submits for credit */
-#define SUBMIT_DESCRIPTION "Transpose submission"
-
-/* External function defined in trans.c */
-extern void registerFunctions();
 
 /* External variables defined in cachelab-tools.c */
 extern trans_func_t func_list[MAX_TRANS_FUNCS];
@@ -32,14 +26,6 @@ extern int func_counter;
 /* Globals set on the command line */
 static int M = 0;
 static int N = 0;
-
-/* The correctness and performance for the submitted transpose function */
-struct results {
-    int funcid;
-    int correct;
-    int misses;
-};
-static struct results results = {-1, 0, INT_MAX};
 
 /* 
  * eval_perf - Evaluate the performance of the registered transpose functions
@@ -61,9 +47,6 @@ void eval_perf(unsigned int s, unsigned int E, unsigned int b)
     /* Evaluate the performance of each registered transpose function */
 
     for (i=0; i<func_counter; i++) {
-        if (strcmp(func_list[i].description, SUBMIT_DESCRIPTION) == 0 )
-            results.funcid = i; /* remember which function is the submission */
-
 
         printf("\nFunction %d (%d total)\nStep 1: Validating and generating memory traces\n",i,func_counter);
         /* Use valgrind to generate the trace */
@@ -83,11 +66,6 @@ void eval_perf(unsigned int s, unsigned int E, unsigned int b)
 
 
         func_list[i].correct=1;
-
-        /* Save the correctness of the transpose submission */
-        if (results.funcid == i ) {
-            results.correct = 1;
-        }
 
         full_trace_fp = fopen("trace.tmp", "r");
         assert(full_trace_fp);
@@ -137,12 +115,12 @@ void eval_perf(unsigned int s, unsigned int E, unsigned int b)
         /* Run the reference simulator */
         printf("Step 2: Evaluating performance (s=%d, E=%d, b=%d)\n", s, E, b);
         char cmd[255];
-        sprintf(cmd, "./csim-ref -s %u -E %u -b %u -t trace.f%d > /dev/null", 
+        sprintf(cmd, "./csim -s %u -E %u -b %u -t trace.f%d", 
                 s, E, b, i);
         system(cmd);
     
         /* Collect results from the reference simulator */
-        FILE* in_fp = fopen(".csim_results","r");
+        FILE* in_fp = fopen("csim_results","r");
         assert(in_fp);
         fscanf(in_fp, "%u %u %u", &hits, &misses, &evictions);
         fclose(in_fp);
@@ -152,7 +130,7 @@ void eval_perf(unsigned int s, unsigned int E, unsigned int b)
          * erroneously added. This should be fixed in a better way in
 	 * the future 
 	 */
-	misses -= 3; //TODO FIXME
+	    misses -= 3; //TODO FIXME
 	
         func_list[i].num_hits = hits;
         func_list[i].num_misses = misses; 
@@ -161,11 +139,6 @@ void eval_perf(unsigned int s, unsigned int E, unsigned int b)
         func_list[i].num_evictions = evictions;
         printf("func %u (%s): hits:%u, misses:%u, evictions:%u\n",
                i, func_list[i].description, hits, misses, evictions);
-    
-        /* If it is transpose_submit(), record number of misses */
-        if (results.funcid == i) {
-            results.misses = misses;
-        }
     }
   
 }
@@ -255,17 +228,5 @@ int main(int argc, char* argv[])
     /* Check the performance of the student's transpose function */
     eval_perf(5, 1, 5);
   
-    /* Emit the results for this particular test */
-    if (results.funcid == -1) {
-        printf("\nError: We could not find your transpose_submit() function\n");
-        printf("Error: Please ensure that description field is exactly \"%s\"\n", 
-               SUBMIT_DESCRIPTION);
-        printf("\nTEST_TRANS_RESULTS=0:0\n");
-    }
-    else {
-        printf("\nSummary for official submission (func %d): correctness=%d misses=%d\n",
-               results.funcid, results.correct, results.misses);
-        printf("\nTEST_TRANS_RESULTS=%d:%d\n", results.correct, results.misses);
-    }
     return 0;
 }

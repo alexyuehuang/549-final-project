@@ -12,15 +12,14 @@
 #include <assert.h>
 #include <unistd.h>
 #include <getopt.h>
-#include "cachelab.h"
 #include <string.h>
+#include <time.h>
 
-/* External variables declared in cachelab.c */
+#include "trans.h"
+
+/* External variables declared in trans.c */
 extern trans_func_t func_list[MAX_TRANS_FUNCS];
 extern int func_counter; 
-
-/* External function from trans.c */
-extern void registerFunctions();
 
 /* Markers used to bound trace regions of interest */
 volatile char MARKER_START, MARKER_END;
@@ -31,8 +30,21 @@ static int B[256][256];
 static int M;
 static int N;
 
+/* 
+ * correctTrans - baseline transpose function used to evaluate correctness 
+ */
+void correctTrans(int M, int N, int A[N][M], int B[M][N])
+{
+    int i, j, tmp;
+    for (i = 0; i < N; i++){
+        for (j = 0; j < M; j++){
+            tmp = A[i][j];
+            B[j][i] = tmp;
+        }
+    }    
+}
 
-int validate(int fn,int M, int N, int A[N][M], int B[M][N]) {
+int validate(int fn, int M, int N, int A[N][M], int B[M][N]) {
     int C[M][N];
     memset(C,0,sizeof(C));
     correctTrans(M,N,A,C);
@@ -47,11 +59,24 @@ int validate(int fn,int M, int N, int A[N][M], int B[M][N]) {
     return 1;
 }
 
-int main(int argc, char* argv[]){
-    int i;
+/* 
+ * initMatrix - Initialize the given matrix randomly
+ */
+void initMatrix(int M, int N, int A[N][M], int B[M][N])
+{
+    int i, j;
+    srand(time(NULL));
+    for (i = 0; i < N; i++){
+        for (j = 0; j < M; j++){
+            A[i][j]=rand();
+            B[j][i]=rand();
+        }
+    }
+}
 
+int main(int argc, char* argv[]){
     char c;
-    int selectedFunc=-1;
+    int selectedFunc = -1;
     while( (c=getopt(argc,argv,"M:N:F:")) != -1){
         switch(c){
         case 'M':
@@ -75,7 +100,7 @@ int main(int argc, char* argv[]){
     registerFunctions();
 
     /* Fill A with data */
-    initMatrix(M,N, A, B);
+    initMatrix(M, N, A, B);
     
     /* Store initial A values in A_TEMP for correctness check */
     memcpy(A_TEMP, A, M*N*sizeof(A[0][0]));
@@ -88,23 +113,13 @@ int main(int argc, char* argv[]){
             (unsigned long long int) &MARKER_END );
     fclose(marker_fp);
 
-    if (-1==selectedFunc) {
-        /* Invoke registered transpose functions */
-        for (i=0; i < func_counter; i++) {
-            MARKER_START = 33;
-            (*func_list[i].func_ptr)(M, N, A, B);
-            MARKER_END = 34;
-            if (!validate(i,M,N,A_TEMP,B))
-                return i+1;
-        }
-    } else {
-        MARKER_START = 33;
-        (*func_list[selectedFunc].func_ptr)(M, N, A, B);
-        MARKER_END = 34;
-        if (!validate(selectedFunc,M,N,A_TEMP,B))
-            return selectedFunc+1;
+    /* Invoke the transpose function */
+    MARKER_START = 33;
+    (*func_list[selectedFunc].func_ptr)(M, N, A, B);
+    MARKER_END = 34;
+    if (!validate(selectedFunc,M,N,A_TEMP,B))
+        return selectedFunc + 1;
 
-    }
     return 0;
 }
 

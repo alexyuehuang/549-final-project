@@ -22,11 +22,7 @@ typedef struct trans_func{
  */ 
 void printSummary(int hits,  /* number of  hits */
 		  int misses, /* number of misses */
-		  int evictions, /* number of evictions */
-		  int dirty_evicted, /* number of dirty bytes evicted */
-		  int dirty_active, /* number of dirty bytes active */
-		  int double_accesses); /* number of double accesses */
-
+		  int evictions); /* number of evictions */
 /* Fill the matrix with data */
 void initMatrix(int M, int N, int A[N][M], int B[M][N]);
 
