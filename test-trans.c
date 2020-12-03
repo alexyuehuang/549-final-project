@@ -27,10 +27,10 @@ static int N = 0;
 /* 
  * eval_perf - Evaluate the performance of the registered transpose functions
  */
-void eval_perf(unsigned int s, unsigned int E, unsigned int b)
+void eval_perf(unsigned int s, unsigned int E, unsigned int b, char *r)
 {
     int i,flag;
-    unsigned int len, hits, misses, evictions;
+    unsigned int len;
     unsigned long long int marker_start, marker_end, addr;
     char buf[1000], cmd[255];
     char filename[128];
@@ -40,10 +40,10 @@ void eval_perf(unsigned int s, unsigned int E, unsigned int b)
     FILE* part_trace_fp; 
 
     /* Evaluate the performance of each registered transpose function */
-
+    printf("=========================================(s=%d, E=%d, b=%d, r=%s)=========================================\n", s, E, b, r);
     for (i=0; i<func_counter; i++) {
 
-        printf("\nFunction %d (%d total)\nStep 1: Validating and generating memory traces\n",i,func_counter);
+        printf("Function %d:[%s]\n",i, func_list[i].description);
         /* Use valgrind to generate the trace */
 
         sprintf(cmd, "valgrind --tool=lackey --trace-mem=yes --log-fd=1 -v ./tracegen -M %d -N %d -F %d  > trace.tmp", M, N,i);
@@ -108,31 +108,10 @@ void eval_perf(unsigned int s, unsigned int E, unsigned int b)
         fclose(full_trace_fp);
 
         /* Run the reference simulator */
-        printf("Step 2: Evaluating performance (s=%d, E=%d, b=%d)\n", s, E, b);
         char cmd[255];
-        sprintf(cmd, "./csim -s %u -E %u -b %u -t trace.f%d", 
-                s, E, b, i);
+        sprintf(cmd, "./csim -s %u -E %u -b %u -t trace.f%d -r %s", 
+                s, E, b, i, r);
         system(cmd);
-    
-        /* Collect results from the reference simulator */
-        FILE* in_fp = fopen("csim_results","r");
-        assert(in_fp);
-        fscanf(in_fp, "%u %u %u", &hits, &misses, &evictions);
-        fclose(in_fp);
-
-	/* 
-	 * -3 because the way markers work now 3 misses are
-         * erroneously added. This should be fixed in a better way in
-	 * the future 
-	 */
-	    //misses -= 3; //TODO FIXME
-	
-        func_list[i].num_hits = hits;
-        func_list[i].num_misses = misses; 
-        func_list[i].num_evictions = evictions;
-        func_list[i].correct = 1;
-        printf("func %u (%s): hits:%u, misses:%u(-3), evictions:%u\n",
-               i, func_list[i].description, hits, misses, evictions);
     }
   
 }
@@ -224,8 +203,10 @@ int main(int argc, char* argv[])
 
     /* Check the performance */
     /********************* test with different cache parameters **********************/
-    eval_perf(5, 1, 5);
-    eval_perf(4, 4, 5);
+    eval_perf(5, 1, 5, "LRU");
+    eval_perf(4, 4, 5, "LRU");
+    eval_perf(4, 4, 5, "RR");
+    eval_perf(4, 4, 5, "NMRU");
     /*********************************************************************************/
     return 0;
 }

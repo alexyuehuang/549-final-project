@@ -138,10 +138,6 @@ void registerTransFunction(void (*trans)(int M, int N, int[N][M], int[M][N]),
 {
     func_list[func_counter].func_ptr = trans;
     func_list[func_counter].description = desc;
-    func_list[func_counter].correct = 0;
-    func_list[func_counter].num_hits = 0;
-    func_list[func_counter].num_misses = 0;
-    func_list[func_counter].num_evictions =0;
     func_counter++;
 }
 
