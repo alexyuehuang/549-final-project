@@ -2,12 +2,23 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 #include <getopt.h>
+
+// protocols
+#define LRU 1
+#define RR 2
+#define FIFO 3
+#define MRU 4
+#define NMRU 5
+
+#define SEED (time(NULL)) // define SEED as a constant to eliminate randomness
 
 // argument inputs
 int s = -1;
 int E = -1;
 int b = -1;
+int r = -1;//replcement policy 1: LRU 2: RR
 FILE * file = NULL;
 char en = 0;
 
@@ -25,7 +36,7 @@ long hit = 0l;
 long miss = 0l;
 long eviction = 0l;
 
-/* update the lru 
+/* update the lru for LRU protocol
  * s_num: set number
  * idx: the index of the line used
  * The lru of the line used is set to 1
@@ -45,13 +56,41 @@ void update_lru(long s_num, int idx){
 	}
 }
 
-/* return the index of the line that we are going to use
+/* update the lru for FIFO protocol
+ * This function will only be called when a new line enters the cache
+ * s_num: set number
+ * idx: the index of the line used
+ * The lru of the line used is set to 1
+ * The lru of the rest of the lines are incremented by 1 if necessary
+ */
+void update_fifo(long s_num, int idx){
+	for(int i = 0; i < E; ++i){
+		if(i == idx){
+			lru[s_num][i] = 1; // the lru of the most recently used one is set to 1
+		}
+		// except idx, we increment all of the other values if it's not 0
+      	else if(lru[s_num][i]){
+			lru[s_num][i]++;
+		}
+	}
+}
+
+/* update for MRU protocol
+ * s_num: set number
+ * idx: the index of the line used
+ */
+void update_mru(long s_num, int idx){
+	// lru[s_num][0] is used to record the most recent visited index
+   	lru[s_num][0] = idx;
+}
+
+/* return the index of the line that we are going to use for LRU protocol
  * s_num: set number
  * if an lru entry is 0, it is a cold miss and the index is returned
  * otherwise return the index with the largest lru value (i.e. least recently
  * used line)
  */
-int index_line(long s_num){
+int index_line_lru(long s_num){
 	int idx = 0;
 	long max_lru = 0;
 	for(int i = 0; i < E; ++i){
@@ -65,6 +104,75 @@ int index_line(long s_num){
 	return idx;
 }
 
+/* return the index of the line that we are going to use for RR protocol
+ * s_num: set number
+ * if there is an empty line, it is a cold miss and the index is returned
+ * otherwise return an random index
+ */
+int index_line_rr(long s_num){
+	for(int i = 0; i < E; ++i){
+		if(vs[s_num][i] == 0)
+			return i;
+	}
+	return rand() % E;
+}
+
+/* return the index of the line that we are going to use for FIFO protocol (the same as LRU)
+ * s_num: set number
+ * if an lru entry is 0, it is a cold miss and the index is returned
+ * otherwise return the index with the largest lru value (i.e. least recently
+ * used line)
+ */
+int index_line_fifo(long s_num){
+	int idx = 0;
+	long max_lru = 0;
+	for(int i = 0; i < E; ++i){
+		if(lru[s_num][i] == 0)
+			return i;
+		if(lru[s_num][i] > max_lru){
+			max_lru = lru[s_num][i];
+			idx = i;
+		}
+	}
+	return idx;
+}
+
+/* return the index of the line that we are going to use for MRU protocol
+ * s_num: set number
+ * if there is an empty line, it is a cold miss and the index is returned
+ * otherwise return the most recently used index, stored in lru[s_num][0]
+ * (see update_mru() function)
+ */
+int index_line_mru(long s_num){
+	for(int i = 0; i < E; ++i){
+		if(vs[s_num][i] == 0)
+			return i;
+	}
+	return lru[s_num][0];
+}
+
+/* return the index of the line that we are going to use for NMRU protocol
+ * s_num: set number
+ * if there is an empty line, it is a cold miss and the index is returned
+ * otherwise return an index that is not the most recently used index, stored in lru[s_num][0]
+ */
+int index_line_nmru(long s_num){
+	if(E == 1) // no other choice. This is to avoid infinite loop below.
+		return 0;
+
+	for(int i = 0; i < E; ++i){
+		if(vs[s_num][i] == 0)
+			return i;
+	}
+
+	int idx;
+	while(1){
+		idx = rand() % E;
+		if(idx != lru[s_num][0])
+			return idx;
+	}
+}
+
 /* simulate a cache load/store at address addr */
 void move_cache(long addr){
 	long tag = ((unsigned long)addr) >> (s + b); // tag
@@ -75,7 +183,10 @@ void move_cache(long addr){
 			hit ++;
 			if(en)
 				printf(" hit");
-         update_lru(s_num, i);
+			if(r == LRU) //LRU replacement protocol
+         		update_lru(s_num, i);
+			else if(r == MRU || r == NMRU) //MRU or NMRU
+				update_mru(s_num, i);
 			break;
 		}
       // miss if we reach the last line in the set
@@ -83,14 +194,37 @@ void move_cache(long addr){
 			miss ++;
 			if(en)
 				printf(" miss");
-			int idx = index_line(s_num); //index of the line we are going to use
+			int idx; // index of the line we are going to use
+
+			if(r == LRU) // LRU
+				idx = index_line_lru(s_num); 
+			else if(r == RR) // RR
+				idx = index_line_rr(s_num);
+			else if(r == FIFO) // FIFO
+				idx = index_line_fifo(s_num);
+			else if(r == MRU) // MRU
+				idx = index_line_mru(s_num);
+			else if(r == NMRU) // NMRU
+				idx = index_line_nmru(s_num);
+
 			if(vs[s_num][idx] == 0){ // a cold miss
-            update_lru(s_num, idx);
+				if(r == LRU) // LRU
+            		update_lru(s_num, idx);
+				else if(r == FIFO) // FIFO
+					update_fifo(s_num, idx);
+				else if(r == MRU || r == NMRU) // MRU or NMRU
+					update_mru(s_num, idx);
+
 			}else{ // eviction is needed
 				eviction ++;
 				if(en)
 					printf(" eviction");
-            update_lru(s_num, idx);
+				if(r == LRU) // LRU
+            		update_lru(s_num, idx);
+				else if(r == FIFO) // FIFO
+					update_fifo(s_num, idx);
+				else if(r == MRU || r == NMRU) // MRU or NMRU
+					update_mru(s_num, idx);
 			}
 			vs[s_num][idx] = 1;
 			tags[s_num][idx] = tag;
@@ -189,6 +323,7 @@ void usage(char *exe){
 			"\t -s <s>: number of set index bits, i.e. 2^s sets\n"
 			"\t -E <E>: associativity, i.e. number of lines per set\n"
 			"\t -b <b>: number of block bits, i.e. block size 2^b\n"
+			"\t -r <r>: replacement policy: one of LRU, RR, FIFO， MRU, NMRU\n"
 			"\t -t <tracefile>: name of the valgrind trace to replay\n",
 		exe);
 }
@@ -196,7 +331,7 @@ void usage(char *exe){
 /* parse the command line arguments and set up the flags */
 void parse_arg(int argc, char * argv[]) {
    char c;
-   while ((c = getopt(argc,argv,"hvs:E:b:t:")) != -1) {
+   while ((c = getopt(argc,argv,"hvs:E:b:t:r:")) != -1) {
       switch(c) {
          case 's':
             s = atoi(optarg);
@@ -210,6 +345,23 @@ void parse_arg(int argc, char * argv[]) {
          case 't':
             file = fopen(optarg, "r");
             break;
+		 case 'r':
+		 	if(!strcmp(optarg, "LRU")){
+				r = LRU;
+			}
+			else if(!strcmp(optarg, "RR")){
+				r = RR;
+			}
+			else if(!strcmp(optarg, "FIFO")){
+				r = FIFO;
+			}
+			else if(!strcmp(optarg, "MRU")){
+				r = MRU;
+			}
+			else if(!strcmp(optarg, "NMRU")){
+				r = NMRU;
+			}
+		 	break;
          case 'v':
             en = 1;
             break;
@@ -221,7 +373,7 @@ void parse_arg(int argc, char * argv[]) {
             exit(1);
       }
    }
-   if(s == -1 || E == -1 || b == -1 || file == NULL){
+   if(s == -1 || E == -1 || b == -1 || r == -1 || file == NULL){
 		usage(argv[0]);
 		exit(1);
 	}
@@ -231,6 +383,7 @@ void parse_arg(int argc, char * argv[]) {
 int main(int argc, char * argv[]) {
     parse_arg(argc, argv);
     malloc_memory();
+	srand(SEED); //randomness is used in RR
     parse_file();
     free_memory();
     printSummary(hit, miss, eviction);
