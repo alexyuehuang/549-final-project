@@ -30,7 +30,7 @@ void sort1(int N, int A[N])
 char sort2_desc[] = "Merge Sort";
 void sort2(int N, int A[N])
 {
-
+    //TODO
 }
 
 /* 
