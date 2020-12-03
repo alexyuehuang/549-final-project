@@ -295,8 +295,8 @@ void malloc_memory() {
 /* summarize the cache simulation statistics */
 void printSummary(int hits, int misses, int evictions) {
     float miss_rate = (float)misses/(float)(hits + misses);
-    printf("hits:\t\t%d\n"
-	   "misses:\t\t%d\n"
+    printf("num of hits:\t%d\n"
+	   "num of misses:\t%d\n"
        "miss rate:\t%f\n"
 	   "evictions:\t%d\n",
 	   hits, misses, miss_rate, evictions);
