@@ -386,7 +386,8 @@ int main(int argc, char * argv[]) {
 	srand(SEED); //randomness is used in RR
     parse_file();
     free_memory();
-    printSummary(hit, miss, eviction);
+	// -3 because the marker will create 3 extra misses
+    printSummary(hit, miss-3, eviction);
     return 0;
 }
 
