@@ -176,7 +176,7 @@ int index_line_nmru(long s_num){
 /* simulate a cache load/store at address addr */
 void move_cache(long addr){
 	long tag = ((unsigned long)addr) >> (s + b); // tag
-	long s_num = (((unsigned long)addr) << (64 - s - b)) >> (64 - s); // set
+	long s_num = s == 0 ? 0 : ((((unsigned long)addr) << (64 - s - b)) >> (64 - s)); // set
 	for(int i = 0; i < E; ++i){
       // hit if valid bit is 1 and tag is the same
 		if(vs[s_num][i] == 1 && tags[s_num][i] == tag) {
