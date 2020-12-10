@@ -195,8 +195,8 @@ int main(int argc, char* argv[])
 
     /* Check the performance */
     /********************* test with different cache parameters **********************/
-    eval_perf(5, 1, 5, "LRU");
-    eval_perf(4, 4, 5, "LRU");
+    //eval_perf(5, 1, 5, "LRU");
+    //eval_perf(4, 4, 5, "LRU");
     eval_perf(0, 10, 5, "LRU"); //fully associative
     //eval_perf(4, 4, 5, "NMRU");
     /*********************************************************************************/
