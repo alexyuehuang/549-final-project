@@ -86,6 +86,9 @@ void sort2(int N, int A[N])
 #define K 9 // K has to be defined at compile time to keep the interface consistent
 
 //int temp[MAXN]; //reusable temp array // already defined
+/* Note that this kMerge takes O(kN). Using heap/binary tree is a better option
+ * But for the sake of IO complexity, it is okay to use this algorithm.
+ */
 void kMerge(int *Arr, int start, int end) {
     int N = end - start + 1;// total length
     int n = N / K; // length of each subarray
