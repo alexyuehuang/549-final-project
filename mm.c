@@ -54,7 +54,23 @@ void mult3(int N, int A[N][N],int B[N][N], int C[N][N])
             }
         }
     }
-    
+}
+
+char mult4_desc[] = "Multiplication Z-Layout";
+void mult4(int N, int A[N][N],int B[N][N], int C[N][N])
+{
+    if(N==1){
+        C[0][0]+=A[0][0]*B[0][0];
+        return;
+    }
+    mult4(N/2,A, B, C);
+    mult4(N/2,A[0][N/2], B[N/2][0],C);
+    mult4(N/2,A[0][N/2], B[N/2][N/2], C[0][N/2]);
+    mult4(N/2,A[0][0], B[0][N/2],C[0][N/2]);
+    mult4(N/2,A[N/2][0], B[N/2][N/2], C[N/2][0]);
+    mult4(N/2,A[0][0], B[N/2][0],C[N/2][0]);
+    mult4(N/2,A[N/2][N/2], B[N/2][N/2], C[N/2][N/2]);
+    mult4(N/2,A[N/2][0], B[0][N/2],C[N/2][N/2]);
 }
 
 /* 
@@ -78,7 +94,6 @@ void registerFunctions()
     registerTransFunction(mult1, mult1_desc);
     registerTransFunction(mult2, mult2_desc);
     registerTransFunction(mult3, mult3_desc);
-
+    registerTransFunction(mult4, mult4_desc);
     /***********************************************************************************/   
 }
-
