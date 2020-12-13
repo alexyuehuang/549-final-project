@@ -19,14 +19,13 @@ trans.o: trans.c
 	$(CC) $(CFLAGS) -O0 -c trans.c
 
 test-sort: test-sort.c sort.o
-	$(CC) $(CFLAGS) -o test-sort test-sort.c sort.o
+	$(CC) $(CFLAGS) -o test-sort test-sort.c sort.o -lm
 
 tracegen-sort: tracegen-sort.c sort.o
-	$(CC) $(CFLAGS) -O0 -o tracegen-sort tracegen-sort.c sort.o
+	$(CC) $(CFLAGS) -O0 -o tracegen-sort tracegen-sort.c sort.o -lm
 
 sort.o: sort.c
 	$(CC) $(CFLAGS) -O0 -c sort.c
-
 #
 # Clean the src dirctory
 #

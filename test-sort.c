@@ -188,7 +188,7 @@ int main(int argc, char* argv[])
     }
 
     /* Time out and give up after a while */
-    alarm(120);
+    //alarm(120);
 
     /* register functions */
     registerFunctions(); 
