@@ -11,7 +11,7 @@
 #include <sys/types.h>
 #include <sys/wait.h> // fir WEXITSTATUS
 #include <limits.h> // for INT_MAX
-
+#include <math.h>
 #include "sort.h"
 
 /* External variables defined in sort.c */
@@ -37,7 +37,7 @@ void eval_perf(unsigned int s, unsigned int E, unsigned int b, char *r)
     FILE* part_trace_fp; 
 
     /* Evaluate the performance of each registered transpose function */
-    printf("=========================================(s=%d, E=%d, b=%d, r=%s)=========================================\n", s, E, b, r);
+    printf("=========================================(set=%d, E=%d, L=%d, r=%s)=========================================\n", (int)pow(2,s), E, (int)pow(2,b), r);
     for (i=0; i<func_counter; i++) {
 
         printf("Function %d:[%s]\n",i, func_list[i].description);
@@ -196,8 +196,8 @@ int main(int argc, char* argv[])
     /* Check the performance */
     /********************* test with different cache parameters **********************/
     //eval_perf(5, 1, 5, "LRU");
-    //eval_perf(4, 4, 5, "LRU");
-    eval_perf(0, 10, 5, "LRU"); //fully associative
+    eval_perf(0, 10, 7, "LRU");
+    //eval_perf(0, 10, 5, "LRU"); //fully associative
     //eval_perf(4, 4, 5, "NMRU");
     /*********************************************************************************/
     return 0;

@@ -586,8 +586,8 @@ void registerFunctions()
 {
     /****************************** Register functions *********************************/
     //registerTransFunction(sort1, sort1_desc);
-    //registerTransFunction(sort2, sort2_desc);
-    registerTransFunction(sort3, sort3_desc);
-    registerTransFunction(sort4, sort4_desc);
+    registerTransFunction(sort2, sort2_desc);
+    //registerTransFunction(sort3, sort3_desc);
+    //registerTransFunction(sort4, sort4_desc);
     /***********************************************************************************/
 }
