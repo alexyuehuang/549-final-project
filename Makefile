@@ -4,7 +4,7 @@
 CC = gcc
 CFLAGS = -g -Wall -Werror -std=c99 -m64
 
-all: csim test-trans tracegen test-sort tracegen-sort
+all: csim test-trans tracegen test-sort tracegen-sort tracegen-mm test-mm
 
 csim: csim.c
 	$(CC) $(CFLAGS) -o csim csim.c -lm 
@@ -26,6 +26,16 @@ tracegen-sort: tracegen-sort.c sort.o
 
 sort.o: sort.c
 	$(CC) $(CFLAGS) -O0 -c sort.c
+
+mm.o: mm.c
+	$(CC) $(CFLAGS) -O0 -c $^
+
+tracegen-mm: tracegen-mm.c mm.o
+	$(CC) $(CFLAGS) -O0 -o $@ $^ -lm
+
+test-mm: test-mm.c mm.o
+	$(CC) $(CFLAGS) -O0 -o $@ $^ -lm
+
 #
 # Clean the src dirctory
 #
