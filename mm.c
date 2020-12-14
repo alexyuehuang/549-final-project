@@ -82,6 +82,10 @@ void mult3(int N, const int A[N][N], const int B[N][N], int C[N][N]) {
 /*     mult4(N/2,A[N/2][0], B[0][N/2],C[N/2][N/2]); */
 /* } */
 
+
+// Morton Z layout 
+// --------------------------------------------------------------------
+
 static inline int interleave(int x, int y, const int leave)
 {	
   const int m = (1<<leave)-1;
@@ -114,50 +118,36 @@ static void morton2orig(const int n, const int *mortonA, int A[n][n], const int 
 }
 
 static const int threshold_bf = 8; // block size for morton z layout
-/* #define MAXNN (MAXN*MAXN) */
-
 
 /*
  * brute force O(n^3) sequantial matrix multiplication
  * C += A * B
  */
-void bf(const int *A, const int *B, int *C, const int n) {
-  for(int i = 0; i < n; ++i) {
-    for(int j = 0; j < n; ++j) {
+static void bf(const int *A, const int *B, int *C, const int n) {
+  for(int i = 0; i < n; ++i)
+    for(int j = 0; j < n; ++j)
       for(int k = 0; k < n; ++k) 
         C[i*n+j] += A[i*n+k] * B[k*n+j];
-      /* int s = (int)0; */
-      /* for(int k = 0; k < n; k += 4) { */
-      /*   s += A[i*n+k] * B[k*n+j] \ */
-      /*        + A[i*n+k+2] * B[(k+2)*n+j] \ */
-      /*        + A[i*n+k+1] * B[(k+1)*n+j] \ */
-      /*        + A[i*n+k+3] * B[(k+3)*n+j]; */
-      /* } */
-      /* C[i*n+j] += s; */
-    }
-  }
 }
 
+// recursive n^3 using z layout
 static void dac(int n, const int* mortonA /* N*N */, const int *mortonB /* N*N */, int *mortonC /* N*N */)
 {
   if (n <= threshold_bf) return bf(mortonA, mortonB, mortonC, n);
 
   const int halfn = n>>1, z = halfn*halfn;
-
-  const int *A1 = mortonA;
-  const int *A2 = mortonA + z;
-  const int *A3 = mortonA + z*2;
-  const int *A4 = mortonA + z*3;
-
-  const int *B1 = mortonB;
-  const int *B2 = mortonB + z*2;
-  const int *B3 = mortonB + z;
-  const int *B4 = mortonB + z*3;
-
-  int *C1 = mortonC;
-  int *C2 = mortonC + z;
-  int *C3 = mortonC + z*2;
-  int *C4 = mortonC + z*3;
+#define A1 mortonA
+#define A2 mortonA+z
+#define A3 mortonA+z*2
+#define A4 mortonA+z*3
+#define B1 mortonB
+#define B2 mortonB+z*2
+#define B3 mortonB+z
+#define B4 mortonB+z*3
+#define C1 mortonC
+#define C2 mortonC+z
+#define C3 mortonC+z*2
+#define C4 mortonC+z*3
 
   dac(halfn, A1, B1, C1);
   dac(halfn, A1, B3, C2);
@@ -170,6 +160,10 @@ static void dac(int n, const int* mortonA /* N*N */, const int *mortonB /* N*N *
   dac(halfn, A4, B4, C4);
 }
 
+// driver
+// convert matrices to z layout
+// divide and conquer
+// convert back
 void mult_dac(int N, const int A[N][N], const int B[N][N], int C[N][N])
 {
   if (N <= threshold_bf) mult2(N, A, B, C);
@@ -177,7 +171,6 @@ void mult_dac(int N, const int A[N][N], const int B[N][N], int C[N][N])
   {
     assert(N % threshold_bf == 0);
     int mortonA[N*N], mortonB[N*N], mortonC[N*N];
-    /* static int mortonA[MAXNN], mortonB[MAXNN], mortonC[MAXNN]; */
     memset(mortonC, 0, sizeof(int)*N*N);
     orig2morton(N, mortonA, A, threshold_bf);
     orig2morton(N, mortonB, B, threshold_bf);
@@ -186,6 +179,8 @@ void mult_dac(int N, const int A[N][N], const int B[N][N], int C[N][N])
   }
 }
 char mult_dac_desc[] = "n^3 dac z layout";
+
+// --------------------------------------------------------------------------
 
 /*
  * registerTransFunction - Add the given function into the list
